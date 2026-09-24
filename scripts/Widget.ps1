@@ -244,8 +244,20 @@ try {
                         if (($series.points | Measure-Object -Maximum).Maximum -gt 0) {
                             $area = New-Object Windows.Shapes.Polygon
                             $area.Points = $fill; $area.Fill = $series.color; $area.Opacity = 0.65
-                            $history = New-Object Windows.Shapes.Polyline
-                            $history.Points = $line; $history.Stroke = $series.color; $history.StrokeThickness = 1
+                            # Zero-width bands share the previous model's boundary. Do not
+                            # stroke those intervals, including tiny rolling-sum residue.
+                            $geometry = New-Object Windows.Media.StreamGeometry
+                            $drawing = $geometry.Open()
+                            try {
+                                $drawing.BeginFigure($line[0], $false, $false)
+                                for ($i = 1; $i -lt $line.Count; $i++) {
+                                    $hasUsage = [double]$series.points[$i - 1] -gt 1e-12 -or [double]$series.points[$i] -gt 1e-12
+                                    $drawing.LineTo($line[$i], $hasUsage, $false)
+                                }
+                            } finally { $drawing.Close() }
+                            $geometry.Freeze()
+                            $history = New-Object Windows.Shapes.Path
+                            $history.Data = $geometry; $history.Stroke = $series.color; $history.StrokeThickness = 1
                             $modelLayers.Children.Add($area) | Out-Null
                             $modelLayers.Children.Add($history) | Out-Null
                         }
