@@ -1,8 +1,19 @@
 // Each point represents the trailing 30 seconds of recorded API-equivalent cost.
 // Use event time, not ingestion time, so rescans cannot create artificial spikes.
-export function widgetSnapshot(database, now = Date.now()) {
+export const MIN_WIDGET_HISTORY_MINUTES = 1;
+export const MAX_WIDGET_HISTORY_MINUTES = 60;
+
+export function normalizeWidgetHistoryMinutes(value, fallback = 5) {
+  if (value == null || value === '') return fallback;
+  const minutes = Number(value);
+  if (!Number.isInteger(minutes)) return fallback;
+  return Math.min(MAX_WIDGET_HISTORY_MINUTES, Math.max(MIN_WIDGET_HISTORY_MINUTES, minutes));
+}
+
+export function widgetSnapshot(database, now = Date.now(), historyMinutes = 5) {
+  const pointCount = normalizeWidgetHistoryMinutes(historyMinutes) * 60;
   const end = Math.floor(now / 1000);
-  const first = end - 299;
+  const first = end - (pointCount - 1);
   const start = first - 29;
   const rows = database.prepare(
     `SELECT event_at, usd FROM calls

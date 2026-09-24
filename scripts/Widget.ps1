@@ -28,7 +28,11 @@ try {
     <Grid x:Name="DetailPanel">
       <Grid.RowDefinitions><RowDefinition Height="28"/><RowDefinition Height="142"/><RowDefinition Height="23"/><RowDefinition Height="55"/><RowDefinition Height="20"/></Grid.RowDefinitions>
       <TextBlock Text="CODEX  /  LIVE COST" Foreground="#A5BAD0" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
-      <Button x:Name="HideButton" Content="&#x2212;" Width="26" Height="22" HorizontalAlignment="Right" Background="#223249" Foreground="#D8E6F5" BorderThickness="0" ToolTip="Collapse to cost bar"/>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button x:Name="ConfigButton" Content="&#x2699;" Width="26" Height="22" Margin="0,0,4,0" Background="#223249" Foreground="#D8E6F5" BorderThickness="0" ToolTip="Widget settings"/>
+        <Button x:Name="HideButton" Content="&#x2212;" Width="26" Height="22" Margin="0,0,4,0" Background="#223249" Foreground="#D8E6F5" BorderThickness="0" ToolTip="Collapse to cost bar"/>
+        <Button x:Name="CloseButton" Content="x" Width="26" Height="22" Background="#223249" Foreground="#D8E6F5" BorderThickness="0" ToolTip="Exit widget"/>
+      </StackPanel>
       <Canvas x:Name="GaugeCanvas" Grid.Row="1" Width="284" Height="142">
         <Path Stroke="#29394D" StrokeThickness="12" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 32,114 A 110,110 0 0 1 252,114"/>
         <Border Background="#121B29" Canvas.Left="72" Canvas.Top="64" Width="140" Height="43">
@@ -45,8 +49,23 @@ try {
         <Polygon x:Name="Area" Fill="#24574F"/>
         <Polyline x:Name="History" Stroke="#57D7B2" StrokeThickness="1.5"/>
       </Canvas>
-      <TextBlock Grid.Row="4" Text="5 MIN AGO" Foreground="#6F879F" FontSize="9" VerticalAlignment="Bottom"/>
+      <TextBlock x:Name="HistoryStartLabel" Grid.Row="4" Text="5 MIN AGO" Foreground="#6F879F" FontSize="9" VerticalAlignment="Bottom"/>
       <TextBlock Grid.Row="4" Text="NOW" Foreground="#6F879F" FontSize="9" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+      <Border x:Name="SettingsPanel" Grid.Row="1" Grid.RowSpan="4" Visibility="Collapsed" Background="#121B29" Panel.ZIndex="5">
+        <StackPanel Margin="8,5,8,0">
+          <TextBlock Text="WIDGET SETTINGS" Foreground="#F1F7FF" FontSize="15" FontWeight="SemiBold"/>
+          <TextBlock Text="Gauge maximum (USD / 30 sec)" Foreground="#A5BAD0" FontSize="11" Margin="0,12,0,4"/>
+          <TextBox x:Name="CeilingInput" Height="28" Padding="7,3" Background="#162334" Foreground="#F1F7FF" BorderBrush="#33465B"/>
+          <TextBlock Text="Graph history (minutes)" Foreground="#A5BAD0" FontSize="11" Margin="0,10,0,4"/>
+          <TextBox x:Name="HistoryMinutesInput" Height="28" Padding="7,3" Background="#162334" Foreground="#F1F7FF" BorderBrush="#33465B"/>
+          <TextBlock Text="Allowed range: 1–60 minutes" Foreground="#6F879F" FontSize="10" Margin="0,4,0,0"/>
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button x:Name="CancelSettingsButton" Content="Cancel" Width="68" Height="28" Margin="0,0,6,0" Background="#223249" Foreground="#D8E6F5" BorderThickness="0"/>
+            <Button x:Name="SaveSettingsButton" Content="Save" Width="68" Height="28" Background="#57D7B2" Foreground="#10231F" BorderThickness="0" FontWeight="SemiBold"/>
+          </StackPanel>
+          <TextBlock x:Name="SettingsError" Foreground="#FF8C8C" FontSize="10" Margin="0,5,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+      </Border>
     </Grid>
     </Grid>
   </Border>
@@ -69,7 +88,32 @@ try {
     $compactRate = $window.FindName('CompactRate')
     $preferencesPath = Join-Path $stateRoot 'widget-preferences.json'
     $script:compact = $false
-    function Set-CompactMode([bool]$compact) {
+    $script:ceiling = 0.60
+    $script:historyMinutes = 5
+    $script:settingsVisible = $false
+    function Save-Preferences {
+        $preferences = @{
+            compact = $script:compact
+            ceiling = $script:ceiling
+            historyMinutes = $script:historyMinutes
+        }
+        [IO.File]::WriteAllText($preferencesPath, ($preferences | ConvertTo-Json), [Text.Encoding]::UTF8)
+    }
+    function Set-SettingsVisibility([bool]$visible) {
+        $script:settingsVisible = $visible
+        $window.FindName('SettingsPanel').Visibility = if ($visible) { 'Visible' } else { 'Collapsed' }
+        $window.FindName('ConfigButton').Content = if ($visible) { [char]0x2190 } else { [char]0x2699 }
+        if ($visible) {
+            $window.FindName('CeilingInput').Text = $script:ceiling.ToString('0.####', [Globalization.CultureInfo]::InvariantCulture)
+            $window.FindName('HistoryMinutesInput').Text = [string]$script:historyMinutes
+            $window.FindName('SettingsError').Text = ''
+        }
+    }
+    function Update-ConfigurationLabels {
+        $window.FindName('Scale').Text = '$' + $script:ceiling.ToString('0.####', [Globalization.CultureInfo]::InvariantCulture) + '/30s'
+        $window.FindName('HistoryStartLabel').Text = [string]$script:historyMinutes + ' MIN AGO'
+    }
+    function Set-CompactMode([bool]$compact, [bool]$persist = $true) {
         # Keep the bottom-right corner fixed when folding or expanding.
         $right = $window.Left + $window.Width
         $bottom = $window.Top + $window.Height
@@ -82,16 +126,51 @@ try {
         $window.Height = if ($compact) { 44 } else { 300 }
         $window.Left = [Math]::Max([double]0, $right - $window.Width)
         $window.Top = [Math]::Max([double]0, $bottom - $window.Height)
-        [IO.File]::WriteAllText($preferencesPath, (@{compact=$compact} | ConvertTo-Json), [Text.Encoding]::UTF8)
+        if ($compact) { Set-SettingsVisibility $false }
+        if ($persist) { Save-Preferences }
         $script:snapshotSaved = $false
         $script:lastDiagnostic = [DateTime]::MinValue
     }
     $window.FindName('HideButton').Add_Click({ Set-CompactMode $true })
     $window.FindName('ExpandButton').Add_Click({ Set-CompactMode $false })
+    $window.FindName('CloseButton').Add_Click({ $window.Close() })
+    $window.FindName('ConfigButton').Add_Click({ Set-SettingsVisibility (-not $script:settingsVisible) })
+    $window.FindName('CancelSettingsButton').Add_Click({ Set-SettingsVisibility $false })
+    $window.FindName('SaveSettingsButton').Add_Click({
+        $parsedCeiling = [double]0
+        $parsedMinutes = [int]0
+        $culture = [Globalization.CultureInfo]::InvariantCulture
+        $validCeiling = [double]::TryParse($window.FindName('CeilingInput').Text, [Globalization.NumberStyles]::Float, $culture, [ref]$parsedCeiling)
+        $validMinutes = [int]::TryParse($window.FindName('HistoryMinutesInput').Text, [ref]$parsedMinutes)
+        if (-not $validCeiling -or $parsedCeiling -le 0 -or $parsedCeiling -gt 1000) {
+            $window.FindName('SettingsError').Text = 'Gauge maximum must be greater than 0 and at most 1000.'
+            return
+        }
+        if (-not $validMinutes -or $parsedMinutes -lt 1 -or $parsedMinutes -gt 60) {
+            $window.FindName('SettingsError').Text = 'Graph history must be a whole number from 1 to 60.'
+            return
+        }
+        $script:ceiling = $parsedCeiling
+        $script:historyMinutes = $parsedMinutes
+        Update-ConfigurationLabels
+        Save-Preferences
+        $script:nextRequest = [DateTime]::MinValue
+        Set-SettingsVisibility $false
+    })
     if (Test-Path -LiteralPath $preferencesPath) {
-        try { Set-CompactMode ([bool]((Get-Content -LiteralPath $preferencesPath -Encoding UTF8 -Raw | ConvertFrom-Json).compact)) }
+        try {
+            $savedPreferences = Get-Content -LiteralPath $preferencesPath -Encoding UTF8 -Raw | ConvertFrom-Json
+            if ($null -ne $savedPreferences.ceiling -and [double]$savedPreferences.ceiling -gt 0 -and [double]$savedPreferences.ceiling -le 1000) {
+                $script:ceiling = [double]$savedPreferences.ceiling
+            }
+            if ($null -ne $savedPreferences.historyMinutes -and [int]$savedPreferences.historyMinutes -ge 1 -and [int]$savedPreferences.historyMinutes -le 60) {
+                $script:historyMinutes = [int]$savedPreferences.historyMinutes
+            }
+            Set-CompactMode ([bool]$savedPreferences.compact) $false
+        }
         catch { [IO.File]::AppendAllText($errorPath, ($_ | Out-String)) }
     }
+    Update-ConfigurationLabels
     $tray = New-Object Windows.Forms.NotifyIcon
     $tray.Icon = [Drawing.SystemIcons]::Information
     $tray.Text = 'Codex Usage Monitor - API equivalent cost'
@@ -117,7 +196,6 @@ try {
     $script:request = $null
     $script:lastGood = [DateTime]::MinValue
     $script:nextRequest = [DateTime]::MinValue
-    $script:ceiling = 0.60
     $script:lastDiagnostic = [DateTime]::MinValue
     $script:snapshotSaved = $false
     $script:startedAt = [DateTime]::UtcNow
@@ -131,7 +209,7 @@ try {
                     if ($data.state -ne 'watching') { throw 'Monitor is scanning or unavailable.' }
                     $script:lastGood = [DateTime]::UtcNow
                     # Convert the API's per-second average to the recorded 30-second total.
-                    # Keep the gauge and chart fixed at $0.60; only visual fill is clamped.
+                    # The configured maximum only clamps the visual fill; the number stays exact.
                     $value = [double]$data.usdPerSecond * 30
                     $rate.Text = '$' + $value.ToString('F4', [Globalization.CultureInfo]::InvariantCulture)
                     $status.Text = if ($data.unpricedCalls -gt 0) { '30s total - some model prices missing' } else { 'Last 30s total - API equivalent' }
@@ -140,16 +218,17 @@ try {
                     $gauge.AnimateTo($fraction)
                     $line = New-Object Windows.Media.PointCollection
                     $fill = New-Object Windows.Media.PointCollection
+                    $pointCount = [Math]::Max(1, $data.points.Count - 1)
                     $fill.Add((New-Object Windows.Point(0, 55)))
                     for ($i = 0; $i -lt $data.points.Count; $i++) {
                         $chartFraction = [Math]::Min([double]1, ([double]$data.points[$i] * 30 / $script:ceiling))
-                        $point = New-Object Windows.Point(($i * 284.0 / 299), (53 - 50 * $chartFraction))
+                        $point = New-Object Windows.Point(($i * 284.0 / $pointCount), (53 - 50 * $chartFraction))
                         $line.Add($point); $fill.Add($point)
                     }
                     $fill.Add((New-Object Windows.Point(284, 55)))
                     $history.Points = $line; $area.Points = $fill
                     # Scroll one sample width between server samples using native animation.
-                    $scroll = New-Object Windows.Media.Animation.DoubleAnimation(0, (-284.0 / 299), ([TimeSpan]::FromSeconds(1)))
+                    $scroll = New-Object Windows.Media.Animation.DoubleAnimation(0, (-284.0 / $pointCount), ([TimeSpan]::FromSeconds(1)))
                     $chartMotion.BeginAnimation([Windows.Media.TranslateTransform]::XProperty, $scroll)
                 } catch {
                     $status.Text = 'Connecting to monitor...'
@@ -167,12 +246,12 @@ try {
             $compactRate.ToolTip = $status.Text
             $compactRate.Foreground = if ($status.Text -eq 'Last 30s total - API equivalent') { '#F1F7FF' } else { '#F5BD73' }
             if (-not $script:request -and [DateTime]::UtcNow -ge $script:nextRequest) {
-                $script:request = $client.GetStringAsync('http://127.0.0.1:47831/api/widget')
+                $script:request = $client.GetStringAsync('http://127.0.0.1:47831/api/widget?minutes=' + [string]$script:historyMinutes)
                 $script:nextRequest = [DateTime]::UtcNow.AddSeconds(1)
             }
             if (([DateTime]::UtcNow - $script:lastDiagnostic).TotalSeconds -ge 5) {
                 $script:lastDiagnostic = [DateTime]::UtcNow
-                $diagnostic = @{ pid = $PID; visible = $window.IsVisible; compact = $script:compact; left = $window.Left; top = $window.Top; width = $window.Width; height = $window.Height; lastGood = $script:lastGood.ToString('o'); rate = $rate.Text; status = $status.Text; ceiling = $script:ceiling }
+                $diagnostic = @{ pid = $PID; visible = $window.IsVisible; compact = $script:compact; left = $window.Left; top = $window.Top; width = $window.Width; height = $window.Height; lastGood = $script:lastGood.ToString('o'); rate = $rate.Text; status = $status.Text; ceiling = $script:ceiling; historyMinutes = $script:historyMinutes }
                 [IO.File]::WriteAllText((Join-Path $stateRoot 'widget-status.json'), ($diagnostic | ConvertTo-Json), [Text.Encoding]::UTF8)
             }
             # Save one rendering for installation verification without capturing other apps.

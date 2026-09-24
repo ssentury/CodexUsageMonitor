@@ -2,18 +2,20 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 
 import {
   APP_NAME,
   APP_VERSION,
   PUBLIC_DIRECTORY,
   RATE_CARD_PATH,
+  ROOT_DIRECTORY,
   resolveConfiguration,
 } from './config.mjs';
 import { UsageDatabase } from './database.mjs';
 import { loadRateCard } from './pricing.mjs';
 import { SessionScanner } from './scanner.mjs';
-import { widgetSnapshot } from './widget.mjs';
+import { normalizeWidgetHistoryMinutes, widgetSnapshot } from './widget.mjs';
 
 const configuration = resolveConfiguration();
 await fsp.mkdir(configuration.stateRoot, { recursive: true });
@@ -39,9 +41,16 @@ const server = http.createServer(async (request, response) => {
   try {
     const requestUrl = new URL(request.url || '/', `http://${configuration.host}:${configuration.port}`);
     if (request.method === 'GET' && requestUrl.pathname === '/api/widget') {
+      const historyMinutes = normalizeWidgetHistoryMinutes(requestUrl.searchParams.get('minutes'));
       return sendJson(response, 200, {
-        ...widgetSnapshot(database.database), state: scanner.snapshot().state,
+        ...widgetSnapshot(database.database, Date.now(), historyMinutes),
+        historyMinutes,
+        state: scanner.snapshot().state,
       });
+    }
+    if (request.method === 'POST' && requestUrl.pathname === '/api/widget/start') {
+      const pid = startWidget();
+      return sendJson(response, 202, { accepted: true, pid });
     }
     if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
       return sendJson(response, 200, {
@@ -155,4 +164,19 @@ function contentType(filePath) {
   if (filePath.endsWith('.js')) return 'text/javascript; charset=utf-8';
   if (filePath.endsWith('.svg')) return 'image/svg+xml';
   return 'application/octet-stream';
+}
+
+function startWidget() {
+  if (process.platform !== 'win32') throw new Error('The desktop widget is only available on Windows.');
+  const scriptPath = path.join(ROOT_DIRECTORY, 'scripts', 'Widget.ps1');
+  const child = spawn(
+    path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
+    ['-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', scriptPath],
+    { stdio: 'ignore', windowsHide: true },
+  );
+  child.on('error', (error) => console.error('Widget startup failed:', error));
+  child.on('exit', (code) => {
+    if (code) console.error(`Widget process exited with code ${code}.`);
+  });
+  return child.pid;
 }

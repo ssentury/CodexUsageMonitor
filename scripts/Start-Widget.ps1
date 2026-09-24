@@ -1,10 +1,9 @@
 <# Starts one native widget per desktop session without opening a browser. #>
 $ErrorActionPreference = 'Stop'
-try {
-    $existing = [Threading.Mutex]::OpenExisting('Local\CodexUsageMonitorWidget')
-    $existing.Dispose()
-    return
-} catch [Threading.WaitHandleCannotBeOpenedException] { }
+$created = $false
+$probe = New-Object Threading.Mutex($false, 'Local\CodexUsageMonitorWidget', [ref]$created)
+$probe.Dispose()
+if (-not $created) { return }
 $widgetScript = Join-Path $PSScriptRoot 'Widget.ps1'
 # Normalize duplicate Path/PATH variables inherited from some launchers.
 $processPath = [Environment]::GetEnvironmentVariable('Path', [EnvironmentVariableTarget]::Process)

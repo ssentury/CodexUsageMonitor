@@ -6,6 +6,7 @@ const updatedAt = document.querySelector('#updated-at');
 const connection = document.querySelector('#connection');
 const liveDot = document.querySelector('#live-dot');
 const rescan = document.querySelector('#rescan');
+const showWidget = document.querySelector('#show-widget');
 let refreshTimer;
 
 days.addEventListener('change', refresh);
@@ -16,6 +17,22 @@ rescan.addEventListener('click', async () => {
     rescan.disabled = false;
     refresh();
   }, 500);
+});
+showWidget.addEventListener('click', async () => {
+  showWidget.disabled = true;
+  const originalText = showWidget.textContent;
+  try {
+    const response = await fetch('/api/widget/start', { method: 'POST' });
+    if (!response.ok) throw new Error('위젯을 시작하지 못했습니다.');
+    showWidget.textContent = '위젯 여는 중…';
+  } catch (error) {
+    showWidget.textContent = error.message;
+  } finally {
+    setTimeout(() => {
+      showWidget.disabled = false;
+      showWidget.textContent = originalText;
+    }, 1500);
+  }
 });
 
 const events = new EventSource('/api/events');

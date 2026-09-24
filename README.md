@@ -12,6 +12,7 @@
 - `codex-auto-review`는 DB에 출처만 보존하고 모든 사용자 합계와 UI에서 제외합니다.
 - SQLite offset 체크포인트로 변경된 JSONL의 새 줄만 읽습니다.
 - SSE와 10초 폴링으로 브라우저 목록을 자동 갱신합니다.
+- 대시보드의 `위젯 켜기` 버튼으로 종료한 데스크톱 위젯을 언제든 다시 실행할 수 있습니다.
 - 대시보드는 `오늘`을 기본 조회 기간으로 사용하며 요약과 프롬프트 목록에 함께 적용합니다.
 - 외부 npm 패키지, 클라우드 백엔드, 텔레메트리, 인증 토큰이 필요하지 않습니다.
 
@@ -84,6 +85,8 @@ Codex 작업 시작 시 호출하는 `AGENTS.md` 설정도 각 PC의 로컬 설�
 - `GET /api/summary?days=today`
 - `GET /api/events` (SSE)
 - `GET /api/widget` (최근 30초 평균 비용과 5분 시계열)
+- `GET /api/widget?minutes=15` (1~60분 범위의 가변 시계열)
+- `POST /api/widget/start` (데스크톱 위젯 실행, 이미 실행 중이면 중복 실행하지 않음)
 - `POST /api/rescan`
 
 ## 정확도 범위
