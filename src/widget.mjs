@@ -3,7 +3,7 @@
 export const MIN_WIDGET_HISTORY_MINUTES = 1;
 export const MAX_WIDGET_HISTORY_MINUTES = 60;
 export const MODEL_COLORS = {
-  astra: '#579DFF', sol: '#FFAA55', terra: '#57C785', luna: '#579DFF', other: '#89939F',
+  astra: '#579DFF', sol: '#FFAA55', terra: '#57C785', luna: '#B68CFF', other: '#89939F',
 };
 
 export function modelFamily(model) {

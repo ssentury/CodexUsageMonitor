@@ -53,7 +53,7 @@ test('model bands preserve total history, colors, unknown costs and expiration',
     });
     assert.deepEqual(snapshot.series.map((item) => Number(item.points.at(-1).toFixed(2))), [0.01, 0.02, 0.03, 0.04, 0.05]);
     assert.equal(snapshot.unpricedCalls, 1);
-    assert.deepEqual(snapshot.series.map((item) => item.color), ['#579DFF', '#FFAA55', '#57C785', '#579DFF', '#89939F']);
+    assert.deepEqual(snapshot.series.map((item) => item.color), ['#579DFF', '#FFAA55', '#57C785', '#B68CFF', '#89939F']);
     assert.ok(widgetSnapshot(db, now + 31000).series.every((item) => item.points.at(-1) < 1e-10));
     assert.equal(modelFamily('gpt-6-sol-2026-09-01'), 'sol');
     assert.equal(modelFamily('something-solar'), 'other');
