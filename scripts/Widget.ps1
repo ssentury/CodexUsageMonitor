@@ -53,7 +53,10 @@ try {
       <TextBlock x:Name="RunningModels" Grid.Row="5" Foreground="#89939F" FontSize="9" Margin="0,7,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
       <Border x:Name="SettingsPanel" Grid.Row="1" Grid.RowSpan="4" Visibility="Collapsed" Background="#121B29" Panel.ZIndex="5">
         <StackPanel Margin="8,5,8,0">
-          <TextBlock Text="WIDGET SETTINGS" Foreground="#F1F7FF" FontSize="15" FontWeight="SemiBold"/>
+          <DockPanel>
+            <Button x:Name="ModelPricesButton" DockPanel.Dock="Right" Content="Model prices &#x2197;" Padding="8,4" Background="#223249" Foreground="#57D7B2" BorderThickness="0" HorizontalAlignment="Right" ToolTip="Edit detected model prices in your browser"/>
+            <TextBlock Text="SETTINGS" Foreground="#F1F7FF" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
+          </DockPanel>
           <TextBlock Text="Gauge maximum (USD / 30 sec)" Foreground="#A5BAD0" FontSize="11" Margin="0,12,0,4"/>
           <TextBox x:Name="CeilingInput" Height="28" Padding="7,3" Background="#162334" Foreground="#F1F7FF" BorderBrush="#33465B"/>
           <TextBlock Text="Graph history (minutes)" Foreground="#A5BAD0" FontSize="11" Margin="0,10,0,4"/>
@@ -94,7 +97,7 @@ try {
     $compactRate = $window.FindName('CompactRate')
     $preferencesPath = Join-Path $stateRoot 'widget-preferences.json'
     $script:compact = $false
-    $script:ceiling = 0.60
+    $script:ceiling = 0.50
     $script:historyMinutes = 5
     $script:settingsVisible = $false
     function Save-Preferences {
@@ -143,6 +146,10 @@ try {
     $window.FindName('ExpandButton').Add_Click({ Set-CompactMode $false })
     $window.FindName('CloseButton').Add_Click({ $window.Close() })
     $window.FindName('ConfigButton').Add_Click({ Set-SettingsVisibility (-not $script:settingsVisible) })
+    $window.FindName('ModelPricesButton').Add_Click({ Start-Process 'http://127.0.0.1:47831/prices.html' })
+    $status.Cursor = [Windows.Input.Cursors]::Hand
+    $status.ToolTip = 'Open model prices'
+    $status.Add_MouseLeftButtonDown({ $_.Handled = $true; Start-Process 'http://127.0.0.1:47831/prices.html' })
     $window.FindName('CancelSettingsButton').Add_Click({ Set-SettingsVisibility $false })
     $window.FindName('SaveSettingsButton').Add_Click({
         $parsedCeiling = [double]0
@@ -195,6 +202,8 @@ try {
     })
     $dashboardItem = $menu.Items.Add('Open dashboard')
     $dashboardItem.Add_Click({ Start-Process 'http://127.0.0.1:47831/' })
+    $pricesItem = $menu.Items.Add('Model prices')
+    $pricesItem.Add_Click({ Start-Process 'http://127.0.0.1:47831/prices.html' })
     $exitItem = $menu.Items.Add('Exit widget')
     $exitItem.Add_Click({ $window.Close() })
     $tray.ContextMenuStrip = $menu
@@ -220,7 +229,7 @@ try {
                     # The configured maximum only clamps the visual fill; the number stays exact.
                     $value = [double]$data.usdPerSecond * 30
                     $rate.Text = '$' + $value.ToString('F4', [Globalization.CultureInfo]::InvariantCulture)
-                    $status.Text = if ($data.unpricedCalls -gt 0) { '30s total - some model prices missing' } else { 'Last 30s total - API equivalent' }
+                    $status.Text = if ($data.unpricedCalls -gt 0) { 'Partial cost - set missing prices >' } else { 'Last 30s total - API equivalent' }
                     $status.Foreground = if ($data.unpricedCalls -gt 0) { '#F5BD73' } else { '#8FA6BF' }
                     $fraction = [Math]::Min([double]1, ($value / $script:ceiling))
                     $gauge.AnimateTo($fraction)

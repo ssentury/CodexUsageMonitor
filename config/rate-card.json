@@ -5,6 +5,19 @@
     "effectiveAt": "2026-09-24"
   },
   "models": {
+    "gpt-5.5": {
+      "inputPerMillion": 5,
+      "cachedInputPerMillion": 0.5,
+      "cacheWritePerMillion": 5,
+      "outputPerMillion": 30,
+      "creditsInputPerMillion": 125,
+      "creditsCachedInputPerMillion": 12.5,
+      "creditsCacheWritePerMillion": 125,
+      "creditsOutputPerMillion": 750,
+      "longContextThresholdTokens": 272000,
+      "longContextInputMultiplier": 2,
+      "longContextOutputMultiplier": 1.5
+    },
     "gpt-6-sol": {
       "inputPerMillion": 2,
       "cachedInputPerMillion": 0.2,

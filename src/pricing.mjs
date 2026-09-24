@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { isPriced } from './catalog.mjs';
 
 export function loadRateCard(rateCardPath) {
   return JSON.parse(fs.readFileSync(rateCardPath, 'utf8'));
@@ -6,7 +7,7 @@ export function loadRateCard(rateCardPath) {
 
 export function priceUsage(model, usage, rateCard) {
   const rate = rateCard.models[model];
-  if (!rate) {
+  if (!isPriced(rate)) {
     return { usd: null, credits: null };
   }
 

@@ -23,8 +23,8 @@ showWidget.addEventListener('click', async () => {
   const originalText = showWidget.textContent;
   try {
     const response = await fetch('/api/widget/start', { method: 'POST' });
-    if (!response.ok) throw new Error('위젯을 시작하지 못했습니다.');
-    showWidget.textContent = '위젯 여는 중…';
+    if (!response.ok) throw new Error('Could not start the widget.');
+    showWidget.textContent = 'Opening widget…';
   } catch (error) {
     showWidget.textContent = error.message;
   } finally {
@@ -42,7 +42,7 @@ events.addEventListener('update', () => {
   scheduleRefresh(100);
 });
 events.onerror = () => {
-  connection.textContent = '재연결 중';
+  connection.textContent = 'Reconnecting';
   liveDot.classList.remove('connected');
 };
 
@@ -51,17 +51,25 @@ refresh();
 
 async function refresh() {
   try {
-    listPeriod.textContent = days.selectedOptions[0]?.textContent || '오늘';
+    listPeriod.textContent = days.selectedOptions[0]?.textContent || 'Today';
     const query = `days=${encodeURIComponent(days.value)}`;
-    const [turnResponse, summaryResponse] = await Promise.all([
+    const [turnResponse, summaryResponse, catalogResponse] = await Promise.all([
       fetch(`/api/turns?${query}&limit=150`, { cache: 'no-store' }),
       fetch(`/api/summary?${query}`, { cache: 'no-store' }),
+      fetch('/api/catalog', { cache: 'no-store' }),
     ]);
-    if (!turnResponse.ok || !summaryResponse.ok) throw new Error('백엔드 응답 실패');
+    if (!turnResponse.ok || !summaryResponse.ok) throw new Error('Could not load usage data.');
     const turnPayload = await turnResponse.json();
     renderSummary(await summaryResponse.json());
     renderTurns(turnPayload.turns);
-    updatedAt.textContent = `갱신 ${new Date().toLocaleTimeString()}`;
+    if (catalogResponse.ok) {
+      const catalog = await catalogResponse.json();
+      const missing = catalog.models.filter((row) => !row.priced).length;
+      const link = document.querySelector('#model-prices');
+      link.textContent = missing ? `Model prices · ${missing} missing` : 'Model prices';
+      link.classList.toggle('missing', missing > 0);
+    }
+    updatedAt.textContent = `Updated ${new Date().toLocaleTimeString('en-US')}`;
     markConnected();
   } catch (error) {
     turnList.replaceChildren(element('div', 'empty error', error.message));
@@ -74,17 +82,17 @@ function scheduleRefresh(delay) {
 }
 
 function markConnected() {
-  connection.textContent = '실시간 연결';
+  connection.textContent = 'Live';
   liveDot.classList.add('connected');
 }
 
 function renderSummary(data) {
   const values = [
-    ['호출', formatNumber(data.calls)],
-    ['입력 토큰', formatTokens(data.inputTokens)],
-    ['캐시 입력', formatTokens(data.cachedInputTokens)],
-    ['API 환산', `$${formatMoney(data.usd)}`],
-    ['Codex 크레딧', formatMoney(data.credits)],
+    ['Calls', formatNumber(data.calls)],
+    ['Input tokens', formatTokens(data.inputTokens)],
+    ['Cached input', formatTokens(data.cachedInputTokens)],
+    ['API-equivalent cost', `$${formatMoney(data.usd)}${data.unpricedCalls ? ' + unpriced' : ''}`],
+    ['Estimated credits', `${formatMoney(data.credits)}${data.unpricedCalls ? ' + unpriced' : ''}`],
   ];
   summary.replaceChildren(
     ...values.map(([label, value]) => {
@@ -97,7 +105,7 @@ function renderSummary(data) {
 
 function renderTurns(turns) {
   if (!turns.length) {
-    turnList.replaceChildren(element('div', 'empty', '아직 수집된 프롬프트가 없습니다.'));
+    turnList.replaceChildren(element('div', 'empty', 'No prompts found for this period.'));
     return;
   }
   turnList.replaceChildren(...turns.map(renderTurn));
@@ -108,13 +116,13 @@ function renderTurn(turn) {
   const head = element('div', 'turn-head');
   const left = element('div');
   const title = element('div', 'turn-title');
-  if (turn.status === 'running') title.append(element('span', 'status', '● 실행 중'));
-  title.append(document.createTextNode(turn.title || '(제목 없는 프롬프트)'));
+  if (turn.status === 'running') title.append(element('span', 'status', '● Running'));
+  title.append(document.createTextNode(turn.title || '(Untitled prompt)'));
   left.append(title, element('div', 'turn-meta', `${formatTime(turn.started_at)} · ${shortPath(turn.cwd)}`));
   const total = element('div', 'turn-total');
   total.append(
     element('div', '', `${formatTokens(turn.totals.totalTokens)} tokens · ${turn.totals.calls} calls`),
-    element('div', '', `$${formatMoney(turn.totals.usd)} · ${formatMoney(turn.totals.credits)} credits`),
+    element('div', '', `$${formatMoney(turn.totals.usd)} · ${formatMoney(turn.totals.credits)} credits${turn.totals.hasUnpriced ? ' + unpriced' : ''}`),
   );
   head.append(left, total);
   card.append(head);
@@ -127,8 +135,8 @@ function renderTurn(turn) {
     row.append(
       label,
       element('div', 'tokens', `${formatTokens(model.inputTokens)} / ${formatTokens(model.cachedInputTokens)} / ${formatTokens(model.outputTokens)} / ${formatTokens(model.totalTokens)}`),
-      element('div', 'money', model.usd == null ? '미환산' : `$${formatMoney(model.usd)}`),
-      element('div', 'money', model.credits == null ? '미환산' : formatMoney(model.credits)),
+      element('div', 'money', model.usd == null ? 'Unpriced' : `$${formatMoney(model.usd)}`),
+      element('div', 'money', model.credits == null ? 'Unpriced' : formatMoney(model.credits)),
     );
     rows.append(row);
   }
@@ -165,7 +173,7 @@ function formatTokens(value = 0) {
 }
 
 function formatNumber(value = 0) {
-  return new Intl.NumberFormat('ko-KR').format(Number(value) || 0);
+  return new Intl.NumberFormat('en-US').format(Number(value) || 0);
 }
 
 function formatMoney(value = 0) {
@@ -173,7 +181,7 @@ function formatMoney(value = 0) {
 }
 
 function formatTime(value) {
-  return value ? new Date(value).toLocaleString() : '-';
+  return value ? new Date(value).toLocaleString('en-US') : '-';
 }
 
 function shortPath(value) {

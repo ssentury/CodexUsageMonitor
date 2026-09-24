@@ -14,12 +14,14 @@ import {
 } from './config.mjs';
 import { UsageDatabase } from './database.mjs';
 import { loadRateCard } from './pricing.mjs';
+import { PriceCatalog } from './catalog.mjs';
 import { SessionScanner } from './scanner.mjs';
 import { normalizeWidgetHistoryMinutes, runningModels, widgetSnapshot } from './widget.mjs';
 
 const configuration = resolveConfiguration();
 await fsp.mkdir(configuration.stateRoot, { recursive: true });
-const rateCard = loadRateCard(RATE_CARD_PATH);
+const catalog = new PriceCatalog(loadRateCard(RATE_CARD_PATH), path.join(configuration.stateRoot, 'price-overrides.json'));
+const rateCard = catalog.rateCard();
 const database = new UsageDatabase(configuration.databasePath, rateCard);
 const eventClients = new Set();
 let revision = 0;
@@ -40,6 +42,28 @@ const scanner = new SessionScanner({
 const server = http.createServer(async (request, response) => {
   try {
     const requestUrl = new URL(request.url || '/', `http://${configuration.host}:${configuration.port}`);
+    if (requestUrl.pathname === '/api/catalog') {
+      if (request.method === 'GET') return sendJson(response, 200, catalog.snapshot(database.detectedModels()));
+      if (request.method === 'PUT') {
+        const origin = `http://${configuration.host}:${configuration.port}`;
+        if ((request.headers.origin && request.headers.origin !== origin) || request.headers.host !== `${configuration.host}:${configuration.port}`) {
+          return sendJson(response, 403, { error: 'Only local, same-origin catalog updates are allowed.' });
+        }
+        if (!request.headers['content-type']?.startsWith('application/json')) return sendJson(response, 415, { error: 'Expected application/json.' });
+        try {
+          const chunks = []; let length = 0;
+          for await (const chunk of request) {
+            length += chunk.length;
+            if (length > 256_000) return sendJson(response, 413, { error: 'Catalog is too large.' });
+            chunks.push(chunk);
+          }
+          const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+          catalog.update(body.models, (next) => database.updateRateCard(next));
+        } catch (error) { return sendJson(response, 400, { error: error.message }); }
+        notifyClients();
+        return sendJson(response, 200, catalog.snapshot(database.detectedModels()));
+      }
+    }
     if (request.method === 'GET' && requestUrl.pathname === '/api/widget') {
       const historyMinutes = normalizeWidgetHistoryMinutes(requestUrl.searchParams.get('minutes'));
       return sendJson(response, 200, {

@@ -1,38 +1,39 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Codex Usage Monitor</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles.css?v=catalog-1" />
   </head>
   <body>
     <main class="shell">
       <header class="topbar">
         <div>
-          <div class="eyebrow"><span id="live-dot" class="live-dot"></span><span id="connection">연결 중</span></div>
+          <div class="eyebrow"><span id="live-dot" class="live-dot"></span><span id="connection">Connecting</span></div>
           <h1>Codex Usage Monitor</h1>
-          <p>로컬 rollout 기록을 세션과 서브에이전트 단위로 집계합니다.</p>
+          <p>Local usage by session, model, and subagent.</p>
         </div>
         <div class="actions">
-          <select id="days" aria-label="조회 기간">
-            <option value="today" selected>오늘</option>
-            <option value="7">7일</option>
-            <option value="30">30일</option>
-            <option value="90">90일</option>
+          <select id="days" aria-label="Date range">
+            <option value="today" selected>Today</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
           </select>
-          <button id="rescan" type="button">다시 스캔</button>
-          <button id="show-widget" type="button">위젯 켜기</button>
+          <button id="rescan" type="button">Rescan</button>
+          <button id="show-widget" type="button">Open widget</button>
+          <a class="button-link" href="/prices.html" id="model-prices">Model prices</a>
         </div>
       </header>
 
-      <section id="summary" class="summary" aria-label="요약"></section>
+      <section id="summary" class="summary" aria-label="Summary"></section>
       <section class="section-heading">
-        <h2>프롬프트 실행 목록 · <span id="list-period">오늘</span></h2>
+        <h2>Prompt history · <span id="list-period">Today</span></h2>
         <span id="updated-at"></span>
       </section>
       <section id="turn-list" class="turn-list" aria-live="polite"></section>
     </main>
-    <script type="module" src="/app.js"></script>
+    <script type="module" src="/app.js?v=catalog-1"></script>
   </body>
 </html>

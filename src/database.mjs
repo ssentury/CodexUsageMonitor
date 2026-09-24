@@ -21,6 +21,17 @@ export class UsageDatabase {
     this.database.close();
   }
 
+  detectedModels() {
+    return this.database.prepare('SELECT model, COUNT(*) AS calls FROM calls WHERE excluded = 0 AND model IS NOT NULL GROUP BY model').all();
+  }
+
+  updateRateCard(rateCard) {
+    const previous = this.rateCard;
+    this.rateCard = rateCard;
+    try { this.transaction(() => this.#refreshPrices()); }
+    catch (error) { this.rateCard = previous; throw error; }
+  }
+
   transaction(callback) {
     this.database.exec('BEGIN IMMEDIATE');
     try {

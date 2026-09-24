@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Model prices · Codex Usage Monitor</title><link rel="stylesheet" href="/styles.css?v=catalog-1"><link rel="stylesheet" href="/prices.css?v=catalog-1"></head>
+<body>
+<main class="catalog-shell">
+  <header class="catalog-header"><div><a href="/" class="back">← Dashboard</a><h1>Model prices</h1><p>Models appear automatically. You only fill in the prices.</p></div><div class="actions"><button id="export">Export</button><button id="import">Import</button><input id="import-file" type="file" accept=".json,application/json" hidden></div></header>
+  <div id="notice" role="status" aria-live="polite"></div>
+  <section id="import-preview" hidden><p id="import-description"></p><button id="apply-import">Apply imported prices</button> <button id="cancel-import">Cancel</button></section>
+  <div class="catalog-layout">
+    <aside class="catalog-sidebar"><label for="search">Models <span id="model-count"></span></label><input id="search" type="search" placeholder="Find a model…"><label class="filter"><input id="missing-only" type="checkbox"> Needs prices only</label><div id="models" class="model-list" aria-label="Model catalog"></div></aside>
+    <section class="price-editor" aria-label="Selected model prices">
+      <div id="empty-editor">Select a model to edit its prices.</div>
+      <form id="price-form" hidden>
+        <div class="editor-heading"><div><span class="eyebrow">MODEL DETECTED / EXACT ID</span><h2 id="model-name"></h2><p id="model-meta"></p></div><span id="price-status" class="badge"></span></div>
+        <div class="copy-row"><label for="copy-model">Copy prices from</label><select id="copy-model"><option value="">Choose a model…</option></select><button id="copy" type="button">Copy</button></div>
+        <div class="price-section-heading"><h3>Token prices</h3><span>USD / 1 million tokens</span></div>
+        <div class="price-fields">
+          <label>Input<input name="inputPerMillion" type="number" min="0" max="1000000000" step="any" placeholder="Not set"></label>
+          <label>Cached input<input name="cachedInputPerMillion" type="number" min="0" max="1000000000" step="any" placeholder="Not set"></label>
+          <label>Output<input name="outputPerMillion" type="number" min="0" max="1000000000" step="any" placeholder="Not set"></label>
+        </div>
+        <p class="hint">Fill all three to calculate cost. Empty means unknown; 0 means free.</p>
+        <details><summary>Advanced pricing <span>Cache writes & long context</span></summary><div class="advanced-fields">
+          <label>Cache writes · USD / 1M<input name="cacheWritePerMillion" type="number" min="0" max="1000000000" step="any" placeholder="Uses input price"></label>
+          <label>Long-context threshold · tokens<input name="longContextThresholdTokens" type="number" min="1" max="1000000000" step="1" placeholder="Disabled"></label>
+          <label>Input & cache multiplier<input name="longContextInputMultiplier" type="number" min="0.000001" max="1000000000" step="any" placeholder="1"></label>
+          <label>Output multiplier<input name="longContextOutputMultiplier" type="number" min="0.000001" max="1000000000" step="any" placeholder="1"></label>
+        </div><p class="hint">Multipliers apply above the input-token threshold.</p></details>
+        <div class="pricing-note">API-equivalent estimate · credits use 25 credits / USD.</div>
+        <footer class="editor-footer"><p>Saving recalculates existing usage too.<br><span id="dirty-state">No unsaved changes</span></p><div class="actions"><button id="reset" type="button">Use bundled prices</button><button id="save" type="submit" class="primary">Save prices</button></div></footer>
+      </form>
+    </section>
+  </div>
+</main><script type="module" src="/prices.js?v=catalog-1"></script>
+</body></html>
