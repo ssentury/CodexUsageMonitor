@@ -1,6 +1,7 @@
 {
   "name": "codex-usage-monitor",
   "version": "0.1.0",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "description": "Local-only live usage monitor for Codex Desktop and CLI sessions.",
