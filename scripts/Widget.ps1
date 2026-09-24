@@ -16,7 +16,7 @@ try {
     )
     [xml]$xaml = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="Codex Usage Monitor Widget" Width="320" Height="300" WindowStyle="None" ResizeMode="NoResize"
+    Title="Codex Usage Monitor Widget" Width="320" SizeToContent="Height" WindowStyle="None" ResizeMode="NoResize"
     AllowsTransparency="True" Background="Transparent" Topmost="True" ShowInTaskbar="False" ShowActivated="False">
   <Border x:Name="Frame" Background="#121B29" BorderBrush="#33465B" BorderThickness="1" CornerRadius="18" Padding="16">
     <Grid>
@@ -26,7 +26,7 @@ try {
       <Button x:Name="ExpandButton" Grid.Column="1" Content="+" Height="24" Background="#223249" Foreground="#D8E6F5" BorderThickness="0" ToolTip="Expand gauge"/>
     </Grid>
     <Grid x:Name="DetailPanel">
-      <Grid.RowDefinitions><RowDefinition Height="28"/><RowDefinition Height="142"/><RowDefinition Height="23"/><RowDefinition Height="55"/><RowDefinition Height="20"/></Grid.RowDefinitions>
+      <Grid.RowDefinitions><RowDefinition Height="28"/><RowDefinition Height="142"/><RowDefinition Height="23"/><RowDefinition Height="55"/><RowDefinition Height="20"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
       <TextBlock Text="CODEX  /  LIVE COST" Foreground="#A5BAD0" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
         <Button x:Name="ConfigButton" Content="&#x2699;" Width="26" Height="22" Margin="0,0,4,0" Background="#223249" Foreground="#D8E6F5" BorderThickness="0" ToolTip="Widget settings"/>
@@ -46,11 +46,11 @@ try {
       <TextBlock x:Name="Status" Grid.Row="2" Text="Connecting..." Foreground="#8FA6BF" FontSize="11" HorizontalAlignment="Center"/>
       <Canvas Grid.Row="3" x:Name="Chart" Width="284" Height="55" ClipToBounds="True" Background="#162334">
         <Line X1="0" X2="284" Y1="18" Y2="18" Stroke="#26384B"/><Line X1="0" X2="284" Y1="36" Y2="36" Stroke="#26384B"/>
-        <Polygon x:Name="Area" Fill="#24574F"/>
-        <Polyline x:Name="History" Stroke="#57D7B2" StrokeThickness="1.5"/>
+        <Canvas x:Name="ModelLayers" Width="284" Height="55"/>
       </Canvas>
       <TextBlock x:Name="HistoryStartLabel" Grid.Row="4" Text="5 MIN AGO" Foreground="#6F879F" FontSize="9" VerticalAlignment="Bottom"/>
       <TextBlock Grid.Row="4" Text="NOW" Foreground="#6F879F" FontSize="9" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+      <TextBlock x:Name="RunningModels" Grid.Row="5" Foreground="#89939F" FontSize="9" Margin="0,7,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
       <Border x:Name="SettingsPanel" Grid.Row="1" Grid.RowSpan="4" Visibility="Collapsed" Background="#121B29" Panel.ZIndex="5">
         <StackPanel Margin="8,5,8,0">
           <TextBlock Text="WIDGET SETTINGS" Foreground="#F1F7FF" FontSize="15" FontWeight="SemiBold"/>
@@ -77,13 +77,19 @@ try {
     $gauge.Width = 284; $gauge.Height = 142
     $gauge.IsHitTestVisible = $false
     $window.FindName('GaugeCanvas').Children.Insert(1, $gauge)
-    $history = $window.FindName('History'); $area = $window.FindName('Area')
+    $modelLayers = $window.FindName('ModelLayers')
+    $running = $window.FindName('RunningModels')
     $chartMotion = New-Object Windows.Media.TranslateTransform
-    $history.RenderTransform = $chartMotion
-    $area.RenderTransform = $chartMotion
+    $modelLayers.RenderTransform = $chartMotion
     $screen = [Windows.SystemParameters]::WorkArea
     $window.Left = $screen.Right - $window.Width - 16
-    $window.Top = $screen.Bottom - $window.Height - 16
+    $window.Top = $screen.Bottom - 302 - 16
+    $window.Add_SizeChanged({
+        $workArea = [Windows.SystemParameters]::WorkArea
+        if ($window.Top + $window.ActualHeight -gt $workArea.Bottom) {
+            $window.Top = [Math]::Max($workArea.Top, $workArea.Bottom - $window.ActualHeight)
+        }
+    })
     $window.Add_MouseLeftButtonDown({ if ($_.ChangedButton -eq 'Left') { $window.DragMove() } })
     $compactRate = $window.FindName('CompactRate')
     $preferencesPath = Join-Path $stateRoot 'widget-preferences.json'
@@ -116,16 +122,18 @@ try {
     function Set-CompactMode([bool]$compact, [bool]$persist = $true) {
         # Keep the bottom-right corner fixed when folding or expanding.
         $right = $window.Left + $window.Width
-        $bottom = $window.Top + $window.Height
+        $bottom = $window.Top + $window.ActualHeight
         $script:compact = $compact
         $window.FindName('DetailPanel').Visibility = if ($compact) { 'Collapsed' } else { 'Visible' }
         $window.FindName('CompactPanel').Visibility = if ($compact) { 'Visible' } else { 'Collapsed' }
         $window.FindName('Frame').Padding = if ($compact) { '10,6' } else { '16' }
         $window.FindName('Frame').CornerRadius = if ($compact) { '10' } else { '18' }
         $window.Width = if ($compact) { 210 } else { 320 }
-        $window.Height = if ($compact) { 44 } else { 300 }
+        $window.SizeToContent = if ($compact) { 'Manual' } else { 'Height' }
+        if ($compact) { $window.Height = 44 } else { $window.Height = [double]::NaN }
+        $window.UpdateLayout()
         $window.Left = [Math]::Max([double]0, $right - $window.Width)
-        $window.Top = [Math]::Max([double]0, $bottom - $window.Height)
+        $window.Top = [Math]::Max([double]0, $bottom - $window.ActualHeight)
         if ($compact) { Set-SettingsVisibility $false }
         if ($persist) { Save-Preferences }
         $script:snapshotSaved = $false
@@ -182,7 +190,7 @@ try {
     $resetItem.Add_Click({
         $workArea = [Windows.SystemParameters]::WorkArea
         $window.Left = $workArea.Right - $window.Width - 16
-        $window.Top = $workArea.Bottom - $window.Height - 16
+        $window.Top = $workArea.Bottom - $window.ActualHeight - 16
         $window.Show()
     })
     $dashboardItem = $menu.Items.Add('Open dashboard')
@@ -216,17 +224,44 @@ try {
                     $status.Foreground = if ($data.unpricedCalls -gt 0) { '#F5BD73' } else { '#8FA6BF' }
                     $fraction = [Math]::Min([double]1, ($value / $script:ceiling))
                     $gauge.AnimateTo($fraction)
-                    $line = New-Object Windows.Media.PointCollection
-                    $fill = New-Object Windows.Media.PointCollection
                     $pointCount = [Math]::Max(1, $data.points.Count - 1)
-                    $fill.Add((New-Object Windows.Point(0, 55)))
-                    for ($i = 0; $i -lt $data.points.Count; $i++) {
-                        $chartFraction = [Math]::Min([double]1, ([double]$data.points[$i] * 30 / $script:ceiling))
-                        $point = New-Object Windows.Point(($i * 284.0 / $pointCount), (53 - 50 * $chartFraction))
-                        $line.Add($point); $fill.Add($point)
+                    $modelLayers.Children.Clear()
+                    $totals = New-Object 'double[]' $data.points.Count
+                    foreach ($series in $data.series) {
+                        $fill = New-Object Windows.Media.PointCollection
+                        $line = New-Object Windows.Media.PointCollection
+                        $lower = New-Object Windows.Media.PointCollection
+                        for ($i = 0; $i -lt $data.points.Count; $i++) {
+                            $x = $i * 284.0 / $pointCount
+                            # Normalize all bands together above the ceiling, preserving their proportions.
+                            $scale = [Math]::Max($script:ceiling / 30, [double]$data.points[$i])
+                            $lower.Add((New-Object Windows.Point($x, (53 - 50 * $totals[$i] / $scale))))
+                            $totals[$i] += [double]$series.points[$i]
+                            $point = New-Object Windows.Point($x, (53 - 50 * $totals[$i] / $scale))
+                            $fill.Add($point); $line.Add($point)
+                        }
+                        for ($i = $lower.Count - 1; $i -ge 0; $i--) { $fill.Add($lower[$i]) }
+                        if (($series.points | Measure-Object -Maximum).Maximum -gt 0) {
+                            $area = New-Object Windows.Shapes.Polygon
+                            $area.Points = $fill; $area.Fill = $series.color; $area.Opacity = 0.65
+                            $history = New-Object Windows.Shapes.Polyline
+                            $history.Points = $line; $history.Stroke = $series.color; $history.StrokeThickness = 1
+                            $modelLayers.Children.Add($area) | Out-Null
+                            $modelLayers.Children.Add($history) | Out-Null
+                        }
                     }
-                    $fill.Add((New-Object Windows.Point(284, 55)))
-                    $history.Points = $line; $area.Points = $fill
+                    $activeModels = @($data.runningModels | Where-Object { $_.count -gt 0 })
+                    $running.Inlines.Clear()
+                    if ($activeModels.Count) {
+                        $running.Inlines.Add((New-Object Windows.Documents.Run('Running: ')))
+                        for ($i = 0; $i -lt $activeModels.Count; $i++) {
+                            if ($i -gt 0) { $running.Inlines.Add((New-Object Windows.Documents.Run((' ' + [char]0x00B7 + ' ')))) }
+                            $modelRun = New-Object Windows.Documents.Run(($activeModels[$i].label + ' x' + $activeModels[$i].count))
+                            $modelRun.Foreground = $activeModels[$i].color
+                            $running.Inlines.Add($modelRun)
+                        }
+                    }
+                    $running.Visibility = if ($activeModels.Count) { 'Visible' } else { 'Collapsed' }
                     # Scroll one sample width between server samples using native animation.
                     $scroll = New-Object Windows.Media.Animation.DoubleAnimation(0, (-284.0 / $pointCount), ([TimeSpan]::FromSeconds(1)))
                     $chartMotion.BeginAnimation([Windows.Media.TranslateTransform]::XProperty, $scroll)
@@ -239,7 +274,8 @@ try {
                 $rate.Text = '--'
                 $status.Text = 'Monitor offline - reconnecting'
                 $status.Foreground = '#F5BD73'
-                $gauge.Reset(); $history.Points.Clear(); $area.Points.Clear()
+                $gauge.Reset(); $modelLayers.Children.Clear()
+                $running.Text = ''; $running.Visibility = 'Collapsed'
                 $chartMotion.BeginAnimation([Windows.Media.TranslateTransform]::XProperty, $null)
             }
             $compactRate.Text = $rate.Text + ' /30s'
@@ -251,13 +287,13 @@ try {
             }
             if (([DateTime]::UtcNow - $script:lastDiagnostic).TotalSeconds -ge 5) {
                 $script:lastDiagnostic = [DateTime]::UtcNow
-                $diagnostic = @{ pid = $PID; visible = $window.IsVisible; compact = $script:compact; left = $window.Left; top = $window.Top; width = $window.Width; height = $window.Height; lastGood = $script:lastGood.ToString('o'); rate = $rate.Text; status = $status.Text; ceiling = $script:ceiling; historyMinutes = $script:historyMinutes }
+                $diagnostic = @{ pid = $PID; visible = $window.IsVisible; compact = $script:compact; left = $window.Left; top = $window.Top; width = $window.ActualWidth; height = $window.ActualHeight; lastGood = $script:lastGood.ToString('o'); rate = $rate.Text; status = $status.Text; running = $running.Text; ceiling = $script:ceiling; historyMinutes = $script:historyMinutes }
                 [IO.File]::WriteAllText((Join-Path $stateRoot 'widget-status.json'), ($diagnostic | ConvertTo-Json), [Text.Encoding]::UTF8)
             }
             # Save one rendering for installation verification without capturing other apps.
             if (-not $script:snapshotSaved -and ([DateTime]::UtcNow - $script:startedAt).TotalSeconds -gt 3 -and $script:lastGood -gt [DateTime]::MinValue -and $window.IsVisible) {
                 $window.UpdateLayout()
-                $bitmap = New-Object Windows.Media.Imaging.RenderTargetBitmap([int]$window.Width, [int]$window.Height, 96, 96, [Windows.Media.PixelFormats]::Pbgra32)
+                $bitmap = New-Object Windows.Media.Imaging.RenderTargetBitmap([int]$window.ActualWidth, [int]$window.ActualHeight, 96, 96, [Windows.Media.PixelFormats]::Pbgra32)
                 $bitmap.Render($window)
                 $encoder = New-Object Windows.Media.Imaging.PngBitmapEncoder
                 $encoder.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap))

@@ -15,7 +15,7 @@ import {
 import { UsageDatabase } from './database.mjs';
 import { loadRateCard } from './pricing.mjs';
 import { SessionScanner } from './scanner.mjs';
-import { normalizeWidgetHistoryMinutes, widgetSnapshot } from './widget.mjs';
+import { normalizeWidgetHistoryMinutes, runningModels, widgetSnapshot } from './widget.mjs';
 
 const configuration = resolveConfiguration();
 await fsp.mkdir(configuration.stateRoot, { recursive: true });
@@ -45,6 +45,7 @@ const server = http.createServer(async (request, response) => {
       return sendJson(response, 200, {
         ...widgetSnapshot(database.database, Date.now(), historyMinutes),
         historyMinutes,
+        runningModels: runningModels(database.database),
         state: scanner.snapshot().state,
       });
     }
