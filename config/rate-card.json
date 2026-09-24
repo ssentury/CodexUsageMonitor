@@ -1,0 +1,87 @@
+{
+  "source": {
+    "name": "Official OpenAI API model pricing; credits use the existing 25 credits/USD conversion",
+    "url": "https://developers.openai.com/api/docs/pricing",
+    "effectiveAt": "2026-09-24"
+  },
+  "models": {
+    "gpt-6-sol": {
+      "inputPerMillion": 2,
+      "cachedInputPerMillion": 0.2,
+      "cacheWritePerMillion": 2.5,
+      "outputPerMillion": 10,
+      "creditsInputPerMillion": 50,
+      "creditsCachedInputPerMillion": 5,
+      "creditsCacheWritePerMillion": 62.5,
+      "creditsOutputPerMillion": 250,
+      "longContextThresholdTokens": 272000,
+      "longContextInputMultiplier": 2,
+      "longContextOutputMultiplier": 1.5
+    },
+    "gpt-6-luna": {
+      "inputPerMillion": 0.1,
+      "cachedInputPerMillion": 0.01,
+      "cacheWritePerMillion": 0.125,
+      "outputPerMillion": 0.5,
+      "creditsInputPerMillion": 2.5,
+      "creditsCachedInputPerMillion": 0.25,
+      "creditsCacheWritePerMillion": 3.125,
+      "creditsOutputPerMillion": 12.5,
+      "longContextThresholdTokens": 272000,
+      "longContextInputMultiplier": 2,
+      "longContextOutputMultiplier": 1.5
+    },
+    "gpt-6-astra": {
+      "inputPerMillion": 10,
+      "cachedInputPerMillion": 1,
+      "cacheWritePerMillion": 12.5,
+      "outputPerMillion": 50,
+      "creditsInputPerMillion": 250,
+      "creditsCachedInputPerMillion": 25,
+      "creditsCacheWritePerMillion": 312.5,
+      "creditsOutputPerMillion": 1250,
+      "longContextThresholdTokens": 272000,
+      "longContextInputMultiplier": 2,
+      "longContextOutputMultiplier": 1.5
+    },
+    "gpt-5.6-sol": {
+      "inputPerMillion": 4,
+      "cachedInputPerMillion": 0.4,
+      "cacheWritePerMillion": 5,
+      "outputPerMillion": 20,
+      "creditsInputPerMillion": 100,
+      "creditsCachedInputPerMillion": 10,
+      "creditsCacheWritePerMillion": 125,
+      "creditsOutputPerMillion": 500,
+      "longContextThresholdTokens": 272000,
+      "longContextInputMultiplier": 2,
+      "longContextOutputMultiplier": 1.5
+    },
+    "gpt-5.6-terra": {
+      "inputPerMillion": 2,
+      "cachedInputPerMillion": 0.2,
+      "cacheWritePerMillion": 2.5,
+      "outputPerMillion": 12,
+      "creditsInputPerMillion": 50,
+      "creditsCachedInputPerMillion": 5,
+      "creditsCacheWritePerMillion": 62.5,
+      "creditsOutputPerMillion": 300,
+      "longContextThresholdTokens": 272000,
+      "longContextInputMultiplier": 2,
+      "longContextOutputMultiplier": 1.5
+    },
+    "gpt-5.6-luna": {
+      "inputPerMillion": 0.2,
+      "cachedInputPerMillion": 0.02,
+      "cacheWritePerMillion": 0.25,
+      "outputPerMillion": 1.2,
+      "creditsInputPerMillion": 5,
+      "creditsCachedInputPerMillion": 0.5,
+      "creditsCacheWritePerMillion": 6.25,
+      "creditsOutputPerMillion": 30,
+      "longContextThresholdTokens": 272000,
+      "longContextInputMultiplier": 2,
+      "longContextOutputMultiplier": 1.5
+    }
+  }
+}
