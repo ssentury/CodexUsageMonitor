@@ -196,7 +196,7 @@ function startWidget() {
   const scriptPath = path.join(ROOT_DIRECTORY, 'scripts', 'Widget.ps1');
   const child = spawn(
     path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
-    ['-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', scriptPath],
+    ['-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', scriptPath, '-Replace'],
     { stdio: 'ignore', windowsHide: true },
   );
   child.on('error', (error) => console.error('Widget startup failed:', error));

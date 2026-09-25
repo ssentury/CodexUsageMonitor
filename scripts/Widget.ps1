@@ -1,8 +1,39 @@
 <# Native always-on-top cost gauge. All usage stays on the local machine. #>
+param([switch]$Replace)
+
 $ErrorActionPreference = 'Stop'
+$mutexName = 'Local\CodexUsageMonitorWidget'
+$restartEventName = 'Local\CodexUsageMonitorWidgetRestart'
 $created = $false
-$mutex = New-Object Threading.Mutex($true, 'Local\CodexUsageMonitorWidget', [ref]$created)
-if (-not $created) { $mutex.Dispose(); exit }
+$ownsMutex = $false
+$mutex = New-Object Threading.Mutex($true, $mutexName, [ref]$created)
+if ($created) {
+    $ownsMutex = $true
+} elseif (-not $Replace) {
+    $mutex.Dispose()
+    exit
+} else {
+    # An explicit Open widget request replaces the existing window. This recovers
+    # widgets stranded on another virtual desktop or outside the current display
+    # layout while preserving passive single-instance startup behavior.
+    try {
+        $restartSignal = [Threading.EventWaitHandle]::OpenExisting($restartEventName)
+        try { $restartSignal.Set() | Out-Null } finally { $restartSignal.Dispose() }
+    } catch [Threading.WaitHandleCannotBeOpenedException] {
+        # The running widget may predate restart signaling. The caller can retry
+        # after that process exits; do not create a second live widget.
+    }
+    $mutex.Dispose()
+    $mutex = New-Object Threading.Mutex($false, $mutexName)
+    try {
+        $ownsMutex = $mutex.WaitOne([TimeSpan]::FromSeconds(5))
+    } catch [Threading.AbandonedMutexException] {
+        $ownsMutex = $true
+    }
+    if (-not $ownsMutex) { $mutex.Dispose(); exit }
+}
+$restartEventCreated = $false
+$restartEvent = New-Object Threading.EventWaitHandle($false, [Threading.EventResetMode]::AutoReset, $restartEventName, [ref]$restartEventCreated)
 $stateRoot = if ($env:CODEX_USAGE_MONITOR_STATE_ROOT) { $env:CODEX_USAGE_MONITOR_STATE_ROOT } else { Join-Path $env:USERPROFILE '.codex-usage-monitor' }
 [IO.Directory]::CreateDirectory($stateRoot) | Out-Null
 $errorPath = Join-Path $stateRoot 'widget-error.log'
@@ -220,6 +251,10 @@ try {
     $timer.Interval = [TimeSpan]::FromMilliseconds(100)
     $timer.Add_Tick({
         try {
+            if ($restartEvent.WaitOne(0)) {
+                $window.Close()
+                return
+            }
             if ($script:request -and $script:request.IsCompleted) {
                 try {
                     $data = ($script:request.GetAwaiter().GetResult()) | ConvertFrom-Json
@@ -336,5 +371,7 @@ try {
     if ($timer) { $timer.Stop() }
     if ($client) { $client.Dispose() }
     if ($tray) { $tray.Visible = $false; $tray.Dispose() }
-    $mutex.ReleaseMutex(); $mutex.Dispose()
+    if ($restartEvent) { $restartEvent.Dispose() }
+    if ($ownsMutex) { $mutex.ReleaseMutex() }
+    if ($mutex) { $mutex.Dispose() }
 }

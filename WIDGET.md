@@ -9,7 +9,9 @@ The 320 x 300 widget starts at the bottom right of the primary display work
 area, above the taskbar, and stays on top. Drag its background to move it.
 The minus button folds it into a 210 x 44 cost-only bar; plus expands it again.
 The x button exits the widget completely. Use **Open widget** in the browser
-dashboard to start it again.
+dashboard to start it again. If a running widget was stranded on another
+virtual desktop or outside the current display layout, **Open widget** replaces
+it and recreates the window at the bottom right of the current desktop.
 The bottom-right corner stays fixed and the selected mode survives restart.
 The gauge uses a green arc without a needle: above 60% of the current maximum
 it turns yellow, and above 80% it turns red. The tray menu can show it,
