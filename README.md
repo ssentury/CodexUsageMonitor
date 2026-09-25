@@ -4,6 +4,8 @@ A local Codex Desktop/CLI usage dashboard with an always-on-top Windows widget.
 Track tokens and estimated API costs by prompt, model, and subagent, with a live
 cost gauge and history graph. Auto-review usage is excluded from user totals.
 
+(Entire code is written by codex so don't blame me :p)
+
 ![Windows widget showing live API-equivalent cost and usage history](docs/images/widget.png)
 
 ## Quick start
